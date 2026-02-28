@@ -8,6 +8,7 @@ static constexpr size_t NodeCount = G + 1;
 struct Edge {
     Node src;
     Node dst;
+    constexpr bool operator==(const Edge& other) const = default;
 };
 static_assert(EdgeConcept<Edge>);
 
@@ -23,18 +24,13 @@ constexpr std::array<Edge, 6> edges = {{
 // ---------- compile time test ----------
 
 TEST(ConstexprBFS, RouteAtoF) {
-    constexpr auto route_A_to_F = bfs_edges<NodeCount>(edges, A, F);
+    constexpr auto route_A_to_F = bfs_find_shortest_path<NodeCount>(edges, A, F);
     static_assert(route_A_to_F.found);
     static_assert(route_A_to_F.length == 2);
-    
-    // Test by vertex sequence
-    static_assert(compare_routes(route_A_to_F, std::array{A, B, F}));
-
-    // Test by edge sequence
-    static_assert(compare_routes(route_A_to_F, std::array<Edge, 2>{{{A, B}, {B, F}}}));
+    static_assert(route_A_to_F.is_equal(std::array<Edge, 2>{{{A, B}, {B, F}}}));
 }
 
 TEST(ConstexprBFS, NoRouteAtoG) {
-    constexpr auto route_A_to_G = bfs_edges<NodeCount>(edges, A, G);
+    constexpr auto route_A_to_G = bfs_find_shortest_path<NodeCount>(edges, A, G);
     static_assert(!route_A_to_G.found);
 }
