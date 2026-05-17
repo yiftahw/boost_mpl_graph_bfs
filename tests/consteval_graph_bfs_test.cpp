@@ -12,6 +12,12 @@ struct Edge {
 };
 static_assert(EdgeConcept<Edge>);
 
+/*
+A -> B -> C -\--> D
+     \       |--> E
+      \------|--> F 
+
+*/
 constexpr std::array<Edge, 6> edges = {{
     {A, B},
     {B, C},
