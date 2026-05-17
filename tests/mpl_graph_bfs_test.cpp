@@ -5,7 +5,7 @@
 #include <boost/mpl/size.hpp>
 #include <boost/mpl/at.hpp>
 
-#include "boost_mpl_graph_shortest_path.hpp"
+#include "mpl_graph_bfs/boost_mpl_graph_shortest_path.hpp"
 
 // Define the test graph structure from the example in the header
 // adjacency list test graph:

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "constexpr_graph_shortest_path.hpp"
+#include "consteval_graph_bfs/consteval_graph_shortest_path.hpp"
 
 enum Node { A, B, C, D, E, F, G };
 static constexpr size_t node_count = G + 1;
