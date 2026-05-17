@@ -58,7 +58,6 @@ template <typename EdgeType, size_t max_edges>
 struct BFSResult {
     std::array<EdgeType, max_edges> path{};
     size_t length = 0;
-    bool found = false;
 
     constexpr auto view() const {
         return std::span(path.data(), length);
@@ -114,7 +113,6 @@ bfs_find_shortest_path(const std::array<EdgeType, num_edges>& edges, NodeType<Ed
 
     std::reverse(result.path.begin(), result.path.begin() + len);
     result.length = len;
-    result.found = true;
     return result;
 }
 
