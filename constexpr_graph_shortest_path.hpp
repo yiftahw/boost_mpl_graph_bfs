@@ -40,11 +40,11 @@ struct ConstexprQueue {
 };
 
 // ---------- adjacency builder ----------
-template <typename EdgeType, size_t num_edges, size_t node_count>
+template <typename EdgeType, size_t num_edges, size_t num_nodes>
     requires EdgeConcept<EdgeType>
 constexpr auto adjacency_list(const std::array<EdgeType, num_edges>& edges) {
-    std::array<std::array<size_t, num_edges>, node_count> out{};
-    std::array<size_t, node_count> counts{};
+    std::array<std::array<size_t, num_edges>, num_nodes> out{};
+    std::array<size_t, num_nodes> counts{};
     for (size_t i = 0; i < num_edges; ++i) {
         NodeType<EdgeType> u = edges[i].src;
         out[u][counts[u]++] = i;
@@ -64,18 +64,7 @@ struct BFSResult {
         return std::span(path.data(), length);
     }
 
-    // comparison operator for edge sequence (check for path equality)
-    template <size_t route_length>
-    constexpr bool is_equal(const std::array<EdgeType, route_length>& other) const {
-        static_assert(route_length <= max_edges, "Route length exceeds maximum edges");
-        if (length != route_length) return false;
-        for (size_t i = 0; i < length; ++i) {
-            if (path[i] != other[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
+
 };
 
 // ---------- constexpr BFS ----------
@@ -137,8 +126,6 @@ consteval auto bfs_find_shortest_path() {
     constexpr size_t num_edges = std::tuple_size_v<Array>;
     constexpr auto result = bfs_find_shortest_path<num_nodes, EdgeType, num_edges>(Edges, Start, Goal);
     std::array<EdgeType, result.length> exact_path{};
-    for (size_t i = 0; i < result.length; ++i) {
-        exact_path[i] = result.path[i];
-    }
+    std::ranges::copy(result.view(), exact_path.begin());
     return exact_path;
 }
