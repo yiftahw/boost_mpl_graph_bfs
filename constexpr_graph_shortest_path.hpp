@@ -128,3 +128,17 @@ bfs_find_shortest_path(const std::array<EdgeType, num_edges>& edges, NodeType<Ed
     result.found = true;
     return result;
 }
+
+// NTTP wrapper that returns an exact array of edges in the path
+template <const auto& Edges, size_t num_nodes, auto Start, auto Goal>
+consteval auto bfs_find_shortest_path() {
+    using Array = std::remove_cvref_t<decltype(Edges)>;
+    using EdgeType = typename Array::value_type;
+    constexpr size_t num_edges = std::tuple_size_v<Array>;
+    constexpr auto result = bfs_find_shortest_path<num_nodes, EdgeType, num_edges>(Edges, Start, Goal);
+    std::array<EdgeType, result.length> exact_path{};
+    for (size_t i = 0; i < result.length; ++i) {
+        exact_path[i] = result.path[i];
+    }
+    return exact_path;
+}
