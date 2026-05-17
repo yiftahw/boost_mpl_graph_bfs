@@ -6,43 +6,46 @@
 #include <concepts>
 #include <span>
 
-template <typename E>
-concept EdgeConcept = requires(E e) {
+template <typename EdgeType>
+concept EdgeConcept = requires(EdgeType e) {
     { e.src };
     { e.dst };
     requires std::same_as<std::remove_cvref_t<decltype(e.src)>, std::remove_cvref_t<decltype(e.dst)>>;
+    requires std::is_trivially_copyable_v<EdgeType>;
+    requires std::equality_comparable<EdgeType>;
 };
 
-template <typename E>
-using NodeType = std::remove_cvref_t<decltype(E::src)>;
+template <typename EdgeType>
+requires EdgeConcept<EdgeType>
+using NodeType = std::remove_cvref_t<decltype(EdgeType::src)>;
 
 // ---------- constexpr queue ----------
-template <typename T, size_t Capacity>
+template <typename T, size_t capacity>
 struct ConstexprQueue {
-    std::array<T, Capacity> buf{};
+    std::array<T, capacity> buf{};
     size_t head = 0, tail = 0, sz = 0;
 
     constexpr bool empty() const { return sz == 0; }
     constexpr void push(const T& v) {
         buf[tail] = v;
-        tail = (tail + 1) % Capacity;
+        tail = (tail + 1) % capacity;
         ++sz;
     }
     constexpr T pop() {
         T v = buf[head];
-        head = (head + 1) % Capacity;
+        head = (head + 1) % capacity;
         --sz;
         return v;
     }
 };
 
 // ---------- adjacency builder ----------
-template <typename EdgeType, size_t NumEdges, size_t NodeCount>
+template <typename EdgeType, size_t num_edges, size_t num_nodes>
     requires EdgeConcept<EdgeType>
-constexpr auto adjacency_list(const std::array<EdgeType, NumEdges>& edges) {
-    std::array<std::array<size_t, NumEdges>, NodeCount> out{};
-    std::array<size_t, NodeCount> counts{};
-    for (size_t i = 0; i < NumEdges; ++i) {
+constexpr auto adjacency_list(const std::array<EdgeType, num_edges>& edges) {
+    std::array<std::array<size_t, num_edges>, num_nodes> out{};
+    std::array<size_t, num_nodes> counts{};
+    for (size_t i = 0; i < num_edges; ++i) {
         NodeType<EdgeType> u = edges[i].src;
         out[u][counts[u]++] = i;
     }
@@ -50,62 +53,36 @@ constexpr auto adjacency_list(const std::array<EdgeType, NumEdges>& edges) {
 }
 
 // ---------- result ----------
-template <typename EdgeType, size_t MaxEdges>
+template <typename EdgeType, size_t max_edges>
     requires EdgeConcept<EdgeType>
 struct BFSResult {
-    std::array<EdgeType, MaxEdges> path{};
+    std::array<EdgeType, max_edges> path{};
     size_t length = 0;
-    bool found = false;
 
     constexpr auto view() const {
         return std::span(path.data(), length);
     }
+
+
 };
 
-// ---------- comparison operator ----------
-template <typename EdgeType, size_t MaxEdges, size_t RouteLength>
-requires EdgeConcept<EdgeType>
-constexpr bool compare_routes(const BFSResult<EdgeType, MaxEdges>& a,
-                          const std::array<NodeType<EdgeType>, RouteLength>& b) {
-    if (a.length != RouteLength - 1) return false;
-    for (size_t i = 0; i < a.length; ++i) {
-        if (a.path[i].src != b[i] || a.path[i].dst != b[i + 1]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-template <typename EdgeType, size_t MaxEdges, size_t RouteLength>
-requires EdgeConcept<EdgeType>
-constexpr bool compare_routes(const BFSResult<EdgeType, MaxEdges>& a,
-                          const std::array<EdgeType, RouteLength>& b) {
-    if (a.length != RouteLength) return false;
-    for (size_t i = 0; i < a.length; ++i) {
-        if (a.path[i].src != b[i].src || a.path[i].dst != b[i].dst) {
-            return false;
-        }
-    }
-    return true;
-}
-
 // ---------- constexpr BFS ----------
-template <size_t NumNodes, typename EdgeType, size_t NumEdges>
+template <size_t num_nodes, typename EdgeType, size_t num_edges>
     requires EdgeConcept<EdgeType>
-constexpr BFSResult<EdgeType, NumNodes - 1>
-bfs_edges(const std::array<EdgeType, NumEdges>& edges, NodeType<EdgeType> start, NodeType<EdgeType> goal) {
-    auto [adj, counts] = adjacency_list<EdgeType, NumEdges, NumNodes>(edges);
-    std::array<int, NumNodes> prev{};
-    std::array<int, NumNodes> via_edge{};
-    std::array<bool, NumNodes> visited{};
+constexpr BFSResult<EdgeType, num_nodes - 1>
+bfs_find_shortest_path(const std::array<EdgeType, num_edges>& edges, NodeType<EdgeType> start, NodeType<EdgeType> goal) {
+    auto [adj, counts] = adjacency_list<EdgeType, num_edges, num_nodes>(edges);
+    std::array<int, num_nodes> prev{};
+    std::array<int, num_nodes> via_edge{};
+    std::array<bool, num_nodes> visited{};
 
-    for (size_t i = 0; i < NumNodes; ++i) {
+    for (size_t i = 0; i < num_nodes; ++i) {
         prev[i] = -1;
         via_edge[i] = -1;
         visited[i] = false;
     }
 
-    ConstexprQueue<NodeType<EdgeType>, NumNodes> q{};
+    ConstexprQueue<NodeType<EdgeType>, num_nodes> q{};
     q.push(start);
     visited[start] = true;
 
@@ -124,16 +101,29 @@ bfs_edges(const std::array<EdgeType, NumEdges>& edges, NodeType<EdgeType> start,
         }
     }
 
-    BFSResult<EdgeType, NumNodes - 1> result{};
+    BFSResult<EdgeType, num_nodes - 1> result{};
     if (!visited[goal]) return result;
 
     // reconstruct path (edges)
     size_t len = 0;
     for (int at = goal; at != start; at = prev[at]) {
+        // copy edge
         result.path[len++] = edges[via_edge[at]];
     }
+
     std::reverse(result.path.begin(), result.path.begin() + len);
     result.length = len;
-    result.found = true;
     return result;
+}
+
+// NTTP wrapper that returns an exact array of edges in the path
+template <const auto& Edges, size_t num_nodes, auto Start, auto Goal>
+consteval auto bfs_find_shortest_path() {
+    using Array = std::remove_cvref_t<decltype(Edges)>;
+    using EdgeType = typename Array::value_type;
+    constexpr size_t num_edges = std::tuple_size_v<Array>;
+    constexpr auto result = bfs_find_shortest_path<num_nodes, EdgeType, num_edges>(Edges, Start, Goal);
+    std::array<EdgeType, result.length> exact_path{};
+    std::ranges::copy(result.view(), exact_path.begin());
+    return exact_path;
 }
